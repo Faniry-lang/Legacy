@@ -1,0 +1,370 @@
+// exemple d'entité
+
+package gestion_compagnie_aerienne.entities;
+
+import legacy.annotations.Column;
+import legacy.annotations.Entity;
+import legacy.annotations.ForeignKey;
+import legacy.annotations.Id;
+import legacy.schema.BaseEntity;
+
+import java.time.LocalDateTime;
+
+@Entity(tableName = "vol")
+public class Vol extends BaseEntity {
+    public Vol() {
+        super();
+    }
+
+    @Id
+    @Column
+    private Long id;
+
+    @Column(name = "numero_vol")
+    private String numeroVol;
+
+    @Column(name = "id_aeroport_depart")
+    @ForeignKey(mappedBy = "aeroport", entity = Aeroport.class)
+    private Integer idAeroportDepart;
+
+    @Column(name = "id_aeroport_arrivee")
+    @ForeignKey(mappedBy = "aeroport", entity = Aeroport.class)
+    private Integer idAeroportArrivee;
+
+    @Column(name = "created_on")
+    private LocalDateTime createdOn;
+
+    public Long getId() {
+        return id;
+    }
+
+    public void setId(Long id) {
+        this.id = id;
+    }
+
+    public String getNumeroVol() {
+        return numeroVol;
+    }
+
+    public void setNumeroVol(String numeroVol) {
+        this.numeroVol = numeroVol;
+    }
+
+    public Integer getIdAeroportDepart() {
+        return idAeroportDepart;
+    }
+
+    public void setIdAeroportDepart(Integer idAeroportDepart) {
+        this.idAeroportDepart = idAeroportDepart;
+    }
+
+    public Integer getIdAeroportArrivee() {
+        return idAeroportArrivee;
+    }
+
+    public void setIdAeroportArrivee(Integer idAeroportArrivee) {
+        this.idAeroportArrivee = idAeroportArrivee;
+    }
+
+    public LocalDateTime getCreatedOn() {
+        return createdOn;
+    }
+
+    public void setCreatedOn(LocalDateTime createdOn) {
+        this.createdOn = createdOn;
+    }
+
+}
+
+// exemple de BaseView
+package gestion_compagnie_aerienne.entities;
+
+import legacy.annotations.Column;
+import legacy.annotations.Entity;
+import legacy.annotations.ForeignKey;
+import legacy.query.QueryManager;
+import legacy.schema.BaseView;
+
+import java.time.LocalDateTime;
+import java.util.List;
+
+@Entity(tableName = "vol_details")
+public class VolDetails extends BaseView {
+    public VolDetails() {
+        super();
+    }
+
+    @Column(name = "id_vol")
+    @ForeignKey(mappedBy = "vol", entity = Vol.class)
+    private Integer idVol;
+
+    @Column(name = "numero_vol")
+    private String numeroVol;
+
+    @Column(name = "id_aeroport_depart")
+    @ForeignKey(mappedBy = "aeroport", entity = Aeroport.class)
+    private Integer idAeroportDepart;
+
+    @Column(name = "id_aeroport_arrivee")
+    @ForeignKey(mappedBy = "aeroport", entity = Aeroport.class)
+    private Integer idAeroportArrivee;
+
+    @Column(name = "date_vol")
+    private LocalDateTime dateVol;
+
+    @Column(name = "id_vol_avion")
+    private Integer idVolAvion;
+
+    @Column(name = "date_depart")
+    private LocalDateTime dateDepart;
+
+    @Column(name = "date_arrivee")
+    private LocalDateTime dateArrivee;
+
+    @Column(name = "date_vol_avion")
+    private LocalDateTime dateVolAvion;
+
+    @Column(name = "id_avion")
+    @ForeignKey(mappedBy = "avion", entity = Avion.class)
+    private Integer idAvion;
+
+    @Column(name = "capacite_totale")
+    private Integer capaciteTotale;
+
+    @Column(name = "places_reservees")
+    private Integer placesReservees;
+
+    @Column(name = "places_restantes")
+    private Integer placesRestantes;
+
+    public Integer getIdVol() {
+        return idVol;
+    }
+
+    public void setIdVol(Integer idVol) {
+        this.idVol = idVol;
+    }
+
+    public String getNumeroVol() {
+        return numeroVol;
+    }
+
+    public void setNumeroVol(String numeroVol) {
+        this.numeroVol = numeroVol;
+    }
+
+    public Integer getIdAeroportDepart() {
+        return idAeroportDepart;
+    }
+
+    public void setIdAeroportDepart(Integer idAeroportDepart) {
+        this.idAeroportDepart = idAeroportDepart;
+    }
+
+    public Integer getIdAeroportArrivee() {
+        return idAeroportArrivee;
+    }
+
+    public void setIdAeroportArrivee(Integer idAeroportArrivee) {
+        this.idAeroportArrivee = idAeroportArrivee;
+    }
+
+    public LocalDateTime getDateVol() {
+        return dateVol;
+    }
+
+    public void setDateVol(LocalDateTime dateVol) {
+        this.dateVol = dateVol;
+    }
+
+    public Integer getIdVolAvion() {
+        return idVolAvion;
+    }
+
+    public void setIdVolAvion(Integer idVolAvion) {
+        this.idVolAvion = idVolAvion;
+    }
+
+    public LocalDateTime getDateDepart() {
+        return dateDepart;
+    }
+
+    public void setDateDepart(LocalDateTime dateDepart) {
+        this.dateDepart = dateDepart;
+    }
+
+    public LocalDateTime getDateArrivee() {
+        return dateArrivee;
+    }
+
+    public void setDateArrivee(LocalDateTime dateArrivee) {
+        this.dateArrivee = dateArrivee;
+    }
+
+    public LocalDateTime getDateVolAvion() {
+        return dateVolAvion;
+    }
+
+    public void setDateVolAvion(LocalDateTime dateVolAvion) {
+        this.dateVolAvion = dateVolAvion;
+    }
+
+    public Integer getIdAvion() {
+        return idAvion;
+    }
+
+    public void setIdAvion(Integer idAvion) {
+        this.idAvion = idAvion;
+    }
+
+    public Integer getCapaciteTotale() {
+        return capaciteTotale;
+    }
+
+    public void setCapaciteTotale(Integer capaciteTotale) {
+        this.capaciteTotale = capaciteTotale;
+    }
+
+    public Integer getPlacesReservees() {
+        return placesReservees;
+    }
+
+    public void setPlacesReservees(Integer placesReservees) {
+        this.placesReservees = placesReservees;
+    }
+
+    public Integer getPlacesRestantes() {
+        return placesRestantes;
+    }
+
+    public void setPlacesRestantes(Integer placesRestantes) {
+        this.placesRestantes = placesRestantes;
+    }
+
+    public static List<VolDetails> findByIdVol(Integer idVol) throws Exception {
+        String sql = "SELECT * FROM vol_details WHERE id_vol = ?";
+        return fetch(VolDetails.class, QueryManager.get_instance(), sql, idVol);
+    }
+
+}
+
+// exemple d'utilisation de EntityCodeGenerator
+package gestion_compagnie_aerienne.code_generator;
+
+import legacy.utils.EntityGenerator;
+
+public class EntityCodeGenerator {
+
+    // commands to run the generator
+    // to generate a specific table: mvn exec:java -Dexec.mainClass="gestion_compagnie_aerienne.code_generator.EntityCodeGenerator" -Dexec.args="TABLE_NAME table"
+    // to generate all tables: mvn exec:java -Dexec.mainClass="gestion_compagnie_aerienne.code_generator.EntityCodeGenerator"
+    public static void main(String[] args) throws Exception {
+        String outputFolderPath = "src/main/java";
+        String packageName = "gestion_compagnie_aerienne.entities";
+
+        if (args.length > 0 && !args[0].trim().isEmpty() && !args[1].trim().isEmpty()) {
+            String tableName = args[0].trim();
+            String tableType = args[1].trim();
+            if(!tableType.equalsIgnoreCase("table") && !tableType.equalsIgnoreCase("view")) {
+                throw new IllegalArgumentException("Invalid table type argument");
+            }
+            System.out.println("Generating entity for "+tableType+": " + tableName);
+            EntityGenerator.generateEntity(tableName, tableType, outputFolderPath, packageName);
+        } else {
+            System.out.println("No table name specified. Generating entities for all tables...");
+            EntityGenerator.generateAllEntities(outputFolderPath, packageName);
+        }
+    }
+}
+
+// exemple d'utilisation des fonctions d'une BaseEntity
+package gestion_compagnie_aerienne.servlet;
+
+import gestion_compagnie_aerienne.entities.Aeroport;
+import jakarta.servlet.ServletException;
+import jakarta.servlet.http.HttpServlet;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
+import legacy.query.Comparator;
+import legacy.query.Filter;
+import legacy.query.QueryManager;
+
+import java.io.IOException;
+import java.util.ArrayList;
+import java.util.List;
+
+public class AeroportServlet extends HttpServlet {
+    @Override
+    protected void doGet(HttpServletRequest req, HttpServletResponse resp) throws ServletException, IOException {
+        try {
+            String codeIata = req.getParameter("codeIata");
+            String nom = req.getParameter("nom");
+            String ville = req.getParameter("ville");
+            String pays = req.getParameter("pays");
+
+            List<Filter> filters = new ArrayList<>();
+            if(codeIata != null && !codeIata.isEmpty()) {
+                filters.add(new Filter("code_iata", Comparator.ILIKE, "%" + codeIata + "%"));
+            }
+            if(nom != null && !nom.isEmpty()) {
+                filters.add(new Filter("nom", Comparator.ILIKE, "%" + nom + "%"));
+            }
+            if(ville != null && !ville.isEmpty()) {
+                filters.add(new Filter("ville", Comparator.ILIKE, "%" + ville + "%"));
+            }
+            if(pays != null && !pays.isEmpty()) {
+                filters.add(new Filter("pays", Comparator.ILIKE, "%" + pays + "%"));
+            }
+
+            List<Aeroport> aeroports;
+            if(filters.isEmpty()) {
+                aeroports = Aeroport.findAll(Aeroport.class, QueryManager.get_instance());
+            } else {
+                aeroports = Aeroport.filter(Aeroport.class, QueryManager.get_instance(), filters.toArray(new Filter[0]));
+            }
+
+            for(Aeroport a : aeroports) {
+                a.mount();
+            }
+
+            req.setAttribute("aeroports", aeroports);
+            req.getRequestDispatcher("pages/aeroport/aeroport-list.jsp").forward(req, resp);
+        } catch (Exception e) {
+            req.setAttribute("error-message", e.getMessage());
+            req.getRequestDispatcher("error.jsp").forward(req, resp);
+        }
+    }
+
+    @Override
+    protected void doPost(HttpServletRequest req, HttpServletResponse resp) throws ServletException, IOException {
+        try {
+            String action = req.getParameter("action");
+            if(action == null) action = "create";
+            switch(action) {
+                case "create":
+                    String codeIata = req.getParameter("codeIata");
+                    String nom = req.getParameter("nom");
+                    String ville = req.getParameter("ville");
+                    String pays = req.getParameter("pays");
+
+                    if(codeIata == null || codeIata.isEmpty()) throw new Exception("Code IATA requis");
+                    if(nom == null || nom.isEmpty()) throw new Exception("Nom requis");
+
+                    Aeroport a = new Aeroport();
+                    a.setCodeIata(codeIata);
+                    a.setNom(nom);
+                    a.setVille(ville);
+                    a.setPays(pays);
+                    a.save();
+
+                    resp.sendRedirect("aeroport");
+                    break;
+                default:
+                    resp.sendError(HttpServletResponse.SC_BAD_REQUEST, "Action inconnue");
+            }
+        } catch (Exception e) {
+            req.setAttribute("error-message", e.getMessage());
+            req.getRequestDispatcher("error.jsp").forward(req, resp);
+        }
+    }
+}
