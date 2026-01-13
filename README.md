@@ -5,13 +5,13 @@ But : BaseEntity
 - Classe de base pour mapper une entité Java à une table SQL.
 - Opérations principales : lecture, écriture, suppression, filtrage.
 - Méthodes importantes (résumé) :
-  - save() : insert ou update.
-  - delete() : supprime l'enregistrement.
-  - findAll(Class<T>, QueryManager) : récupère tous les enregistrements.
-  - findById(Class<T>, QueryManager, id) : récupère par id.
-  - filter(Class<T>, QueryManager, Filter...) : recherche paramétrée.
-  - fetch(Class<T>, QueryManager, sql, params...) : requête SQL brute mappée.
-  - mount() : charge les relations (foreign keys).
+    - save() : insert ou update.
+    - delete() : supprime l'enregistrement.
+    - findAll(Class<T>, QueryManager) : récupère tous les enregistrements.
+    - findById(Class<T>, QueryManager, id) : récupère par id.
+    - filter(Class<T>, QueryManager, Filter...) : recherche paramétrée.
+    - fetch(Class<T>, QueryManager, sql, params...) : requête SQL brute mappée.
+    - mount() : charge les relations (foreign keys).
 
 Exemple : Créez une entité
 
