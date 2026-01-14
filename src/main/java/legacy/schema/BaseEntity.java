@@ -20,12 +20,10 @@ public class BaseEntity {
 
     QueryManager queryManager;
     ForeignKeysCollection foreignKeysCollection;
-    private boolean mounted;
 
     public BaseEntity() {
         this.queryManager = QueryManager.get_instance();
         this.foreignKeysCollection = new ForeignKeysCollection();
-        this.mounted = false;
     }
 
     private String capitalize(String str) {
@@ -187,6 +185,7 @@ public class BaseEntity {
     public BaseEntity save() throws Exception {
         LinkedHashMap<String, Object> columnsWithValue = getColumnsWithValue(false);
         String sqlStr = createInsertSql(columnsWithValue);
+        System.out.println("[DEBUG Legacy Framework] (BaseEntity.save) Generated SQL: " + sqlStr);
         Object[] params = columnsWithValue.values().toArray();
         long returnedId = this.queryManager.executeInsertReturnId(sqlStr, params);
 
@@ -313,13 +312,71 @@ public class BaseEntity {
         return fetch(entityClass, queryManager, sb.toString(), ids.toArray());
     }
 
-    public void mount() throws Exception {
+    private void mount(String fieldName) throws Exception {
+        if (this.foreignKeysCollection == null) {
+            this.foreignKeysCollection = new ForeignKeysCollection();
+        }
+
+        Field field = null;
+        String fName = null;
+        List<Field> foreignKeysFields = BaseEntity.getAllForeignKeysFields(this.getClass());
+        for(Field f : foreignKeysFields) {
+            fName = f.getName();
+            if(f.isAnnotationPresent(Column.class)) {
+                Column colAnnotation = f.getAnnotation(Column.class);
+                if(!colAnnotation.name().isEmpty()) {
+                    fName = colAnnotation.name();
+                }
+            }
+            if(fName.equals(fieldName)) {
+                field = f;
+                break;
+            }
+        }
+        if(field == null) {
+            throw new IllegalArgumentException("Foreign key field '"+fieldName+"' not found in entity '"+this.getClass().getSimpleName()+"'");
+        }
+
+        if(this.foreignKeysCollection.get(fName) != null) {
+            return;
+        }
+
+        Class<? extends BaseEntity> entityClass = null;
+        if(field.isAnnotationPresent(ForeignKey.class)) {
+            ForeignKey fkAnnotation = field.getAnnotation(ForeignKey.class);
+            if (fkAnnotation == null) {
+                throw new IllegalArgumentException("Foreign key annotation not found on field '" + fieldName + "' in entity '" + this.getClass().getSimpleName() + "'");
+            }
+            entityClass = fkAnnotation.entity();
+        }
+
+        if(entityClass != null) {
+            getForeignKeyEntity(fieldName, field, entityClass);
+        }
+
+    }
+
+    private void getForeignKeyEntity(String fieldName, Field field, Class<? extends BaseEntity> entityClass) throws Exception {
+        Method getterMethod = this.getClass().getMethod("get"+field.getName().substring(0, 1).toUpperCase() + field.getName().substring(1));
+        Object value = getterMethod.invoke(this);
+        if (value != null) {
+            BaseEntity entity = BaseEntity.findById(value, entityClass, queryManager);
+            if (entity != null) {
+                this.foreignKeysCollection.put(fieldName, entity);
+            }
+        }
+    }
+
+    private void mountAll() throws Exception {
         if (this.foreignKeysCollection == null) {
             this.foreignKeysCollection = new ForeignKeysCollection();
         } else {
             this.foreignKeysCollection.clear();
         }
         List<Field> foreignKeysFields = BaseEntity.getAllForeignKeysFields(this.getClass());
+        if(foreignKeysFields.size() == this.foreignKeysCollection.getAll().size()) {
+            return;
+        }
         for(Field field : foreignKeysFields) {
             String fieldName = field.getName();
             if(field.isAnnotationPresent(Column.class)) {
@@ -336,28 +393,24 @@ public class BaseEntity {
                 entityClass = fkAnnotation.entity();
             }
 
-            Method getterMethod = this.getClass().getMethod("get"+field.getName().substring(0, 1).toUpperCase() + field.getName().substring(1));
-            Object value = getterMethod.invoke(this);
-            if (value != null) {
-                BaseEntity entity = BaseEntity.findById(value, entityClass, queryManager);
-                if (entity != null) {
-                    this.foreignKeysCollection.put(fieldName, entity);
-                }
+            if(this.foreignKeysCollection.get(fieldName) == null) {
+                getForeignKeyEntity(fieldName, field, entityClass);
             }
 
         }
-
-        this.mounted = true;
     }
 
     public QueryManager getQueryManager() {
         return queryManager;
     }
 
-    public ForeignKeysCollection getForeignKeysCollection() throws UnmountedEntityException {
-        if(!this.mounted) {
-            throw new UnmountedEntityException("The entity "+this.getClass().getSimpleName()+" is not mounted. Please call the mount() method before accessing mounted foreign keys.");
-        }
+    public <T extends BaseEntity> T getForeignKey(String fieldName) throws Exception {
+        this.mount(fieldName);
+        return (T) foreignKeysCollection.get(fieldName);
+    }
+
+    public ForeignKeysCollection getForeignKeysCollection() throws Exception {
+        this.mountAll();
         return foreignKeysCollection;
     }
 
@@ -406,6 +459,12 @@ public class BaseEntity {
         System.out.println("[DEBUG LEGACY FRAMEWORK] (BaseEntity.filter) Generated SQL: " + sql.toString());
 
         return fetch(entityClass, queryManager, sql.toString(), params.toArray());
+    }
+
+    public static <T extends BaseEntity> List<T> findBy(String fieldName, Object value, Class<T> entityClass, QueryManager queryManager) throws Exception {
+        String tableName = getTableNameFromClass(entityClass);
+        String sql = "SELECT * FROM " + tableName + " WHERE " + fieldName + " = ?";
+        return fetch(entityClass, queryManager, sql, value);
     }
 
 }

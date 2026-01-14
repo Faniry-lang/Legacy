@@ -1,6 +1,6 @@
 package legacy.exceptions;
 
-public class UnmountedEntityException extends RuntimeException {
+public class UnmountedEntityException extends Exception {
     public UnmountedEntityException(String message) {
         super(message);
     }

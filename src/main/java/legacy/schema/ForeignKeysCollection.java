@@ -22,9 +22,6 @@ public class ForeignKeysCollection {
 
     public Object get(String key) throws ForeignKeyFieldNotFound {
         Object value = foreignKeys.get(key);
-        if (value == null) {
-            throw new ForeignKeyFieldNotFound("Foreign key field '" + key + "' not found in the collection.");
-        }
         return value;
     }
 
