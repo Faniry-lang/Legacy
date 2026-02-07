@@ -243,8 +243,16 @@ public class BaseEntity {
         String sqlStr = createInsertSql(columnsWithValue);
         System.out.println("[DEBUG Legacy Framework] (BaseEntity.save) Generated SQL: " + sqlStr);
         Object[] params = columnsWithValue.values().toArray();
-        Object returnedId = this.queryManager.executeInsertReturnId(sqlStr, params);
 
+        int returnedId = this.queryManager.executeInsertReturnId(sqlStr, params);
+
+        List<String> ids = getIdFieldName();
+        if(columnsWithValue.containsKey(ids.get(0))) {
+            // retrieved columns have id so it means they are not generated
+            return this;
+        }
+
+        // assuming auto generated id are single id
         Method idSetter = getIdSetter();
         if(idSetter != null) {
             try {

@@ -52,7 +52,7 @@ public class QueryManager {
         }
     }
 
-    public Object executeInsertReturnId(String sql, Object... params) throws Exception {
+    public int executeInsertReturnId(String sql, Object... params) throws Exception {
         try (Connection conn = DbConn.getConn();
              PreparedStatement stmt = conn.prepareStatement(sql, Statement.RETURN_GENERATED_KEYS)) {
 
@@ -65,10 +65,14 @@ public class QueryManager {
 
             try (ResultSet rs = stmt.getGeneratedKeys()) {
                 if (rs.next()) {
-                    return rs.getObject(1);
+                    return rs.getInt(1);
                 } else {
-                    throw new SQLException("Aucune clé générée");
+                    System.out.println("Aucune clé générée");
+                    return -1;
                 }
+            } catch (Exception e) {
+                //System.out.println(e.getMessage());
+                return -1;
             }
         }
     }
