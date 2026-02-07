@@ -2,6 +2,7 @@ package legacy.schema;
 
 import legacy.annotations.*;
 import legacy.query.Filter;
+import legacy.query.FilterSet;
 import legacy.query.QueryManager;
 import legacy.query.RawObject;
 import legacy.strategy.GeneratedAfterPersistence;
@@ -243,8 +244,16 @@ public class BaseEntity {
         String sqlStr = createInsertSql(columnsWithValue);
         System.out.println("[DEBUG Legacy Framework] (BaseEntity.save) Generated SQL: " + sqlStr);
         Object[] params = columnsWithValue.values().toArray();
-        Object returnedId = this.queryManager.executeInsertReturnId(sqlStr, params);
 
+        int returnedId = this.queryManager.executeInsertReturnId(sqlStr, params);
+
+        List<String> ids = getIdFieldName();
+        if(columnsWithValue.containsKey(ids.get(0))) {
+            // retrieved columns have id so it means they are not generated
+            return this;
+        }
+
+        // assuming auto generated id are single id
         Method idSetter = getIdSetter();
         if(idSetter != null) {
             try {
@@ -297,18 +306,19 @@ public class BaseEntity {
         this.queryManager.executeUpdate(sql+afterWhere, ids);
     }
 
-    public static <T extends BaseEntity> List<T> findAll(Class<T> entityClass, QueryManager queryManager) throws Exception {
+    public static <T extends BaseEntity> List<T> findAll(Class<T> entityClass) throws Exception {
         String tableName = getTableNameFromClass(entityClass);
         if (tableName.isEmpty()) {
             throw new IllegalStateException("Entity class " + entityClass.getSimpleName() + " is not annotated with @Entity");
         }
         String sql = "SELECT * FROM " + tableName;
-        List<RawObject> rows = queryManager.executeSelect(sql);
+        QueryManager qm = QueryManager.get_instance();
+        List<RawObject> rows = qm.executeSelect(sql);
 
         return RawObject.mapRowsToEntities(rows, entityClass);
     }
 
-    public static <T extends BaseEntity> T findById(Object id, Class<T> entityClass, QueryManager queryManager) throws Exception {
+    public static <T extends BaseEntity> T findById(Object id, Class<T> entityClass) throws Exception {
         String tableName = getTableNameFromClass(entityClass);
         if (tableName.isEmpty()) {
             throw new IllegalStateException("Entity class " + entityClass.getSimpleName() + " is not annotated with @Entity");
@@ -317,7 +327,8 @@ public class BaseEntity {
         String idFieldName = instance.getIdFieldName().get(0);
         
         String sql = "SELECT * FROM " + tableName + " WHERE " + idFieldName + " = ?";
-        List<RawObject> rows = queryManager.executeSelect(sql, id);
+        QueryManager qm = QueryManager.get_instance();
+        List<RawObject> rows = qm.executeSelect(sql, id);
         if (rows.isEmpty()) {
             return null;
         }
@@ -325,7 +336,7 @@ public class BaseEntity {
         return rows.get(0).toEntity(entityClass);
     }
 
-    public static <T extends BaseEntity> T findById(Map<String, Object> ids, Class<T> entityClass, QueryManager queryManager) throws Exception {
+    public static <T extends BaseEntity> T findById(Map<String, Object> ids, Class<T> entityClass) throws Exception {
         String tableName = getTableNameFromClass(entityClass);
         if (tableName.isEmpty()) {
             throw new IllegalStateException("Entity class " + entityClass.getSimpleName() + " is not annotated with @Entity");
@@ -348,7 +359,8 @@ public class BaseEntity {
             throw new Exception("[LEGACY ERROR] Error while fetching by ids, condition invalid (id annotated fields might be missing in entity declaration)");
         }
 
-        List<RawObject> rows = queryManager.executeSelect(sql+afterWhere, idsParams);
+        QueryManager qm = QueryManager.get_instance();
+        List<RawObject> rows = qm.executeSelect(sql+afterWhere, idsParams);
         if (rows.isEmpty()) {
             return null;
         }
@@ -393,8 +405,9 @@ public class BaseEntity {
         return columnDatas;
     }
 
-    public static <T extends  BaseEntity> List<T> fetch(Class<T> entityClass, QueryManager queryManager, String sql, Object...params) throws Exception {
-        List<RawObject> rawObjects = queryManager.executeSelect(sql, params);
+    public static <T extends  BaseEntity> List<T> fetch(Class<T> entityClass, String sql, Object...params) throws Exception {
+        QueryManager qm = QueryManager.get_instance();
+        List<RawObject> rawObjects = qm.executeSelect(sql, params);
         List<T> baseEntityList = new ArrayList<>();
         for(RawObject rawObject : rawObjects){
             baseEntityList.add(rawObject.toEntity(entityClass));
@@ -450,7 +463,7 @@ public class BaseEntity {
         Method getterMethod = this.getClass().getMethod("get"+field.getName().substring(0, 1).toUpperCase() + field.getName().substring(1));
         Object value = getterMethod.invoke(this);
         if (value != null) {
-            BaseEntity entity = BaseEntity.findById(value, entityClass, queryManager);
+            BaseEntity entity = BaseEntity.findById(value, entityClass);
             if (entity != null) {
                 this.foreignKeysCollection.put(fieldName, entity);
             }
@@ -490,10 +503,6 @@ public class BaseEntity {
         }
     }
 
-    public QueryManager getQueryManager() {
-        return queryManager;
-    }
-
     public <T extends BaseEntity> T getForeignKey(String fieldName) throws Exception {
         this.mount(fieldName);
         return (T) foreignKeysCollection.get(fieldName);
@@ -506,14 +515,14 @@ public class BaseEntity {
 
     public static <T extends BaseEntity> List<T> filter(
             Class<T> entityClass,
-            QueryManager queryManager,
-            Filter... filters) throws Exception {
+            FilterSet filterSet) throws Exception {
 
         String tableName = getTableNameFromClass(entityClass);
         StringBuilder sql = new StringBuilder("SELECT * FROM " + tableName + " WHERE 1 = 1");
 
         List<Object> params = new ArrayList<>();
 
+        List<Filter> filters = filterSet.getFilters();
         if (filters != null) {
             for (Filter filter : filters) {
                 sql.append(" AND ").append(filter.getFieldName());
@@ -548,13 +557,13 @@ public class BaseEntity {
 
         System.out.println("[DEBUG LEGACY FRAMEWORK] (BaseEntity.filter) Generated SQL: " + sql.toString());
 
-        return fetch(entityClass, queryManager, sql.toString(), params.toArray());
+        return fetch(entityClass, sql.toString(), params.toArray());
     }
 
-    public static <T extends BaseEntity> List<T> findBy(String fieldName, Object value, Class<T> entityClass, QueryManager queryManager) throws Exception {
+    public static <T extends BaseEntity> List<T> findBy(String fieldName, Object value, Class<T> entityClass) throws Exception {
         String tableName = getTableNameFromClass(entityClass);
         String sql = "SELECT * FROM " + tableName + " WHERE " + fieldName + " = ?";
-        return fetch(entityClass, queryManager, sql, value);
+        return fetch(entityClass, sql, value);
     }
 
 }
