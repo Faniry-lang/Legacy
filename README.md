@@ -100,10 +100,4 @@ src/main/java/legacy/
 └── utils/           # DbConn, EntityGenerator, PropertyLoader
 ```
 
-## Licence
-
-MIT
-
----
-
 *Legacy ORM - Simple, orienté objet, efficace.*
