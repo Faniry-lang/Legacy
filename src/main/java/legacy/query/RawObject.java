@@ -45,7 +45,13 @@ public class RawObject {
                 continue;
             }
 
-            Method setter = entityClass.getMethod("set" + capitalize(field.getName()), field.getType());
+            Method setter = null;
+            try {
+                setter = entityClass.getMethod("set" + capitalize(field.getName()), field.getType());
+            } catch(NoSuchMethodException e) {
+                throw new Exception(
+                        entityClass.getName()+" BaseEntity setter 'set"+capitalize(field.getName())+"' not found, please review your BaseEntity class to match the setter conventions of Legacy ORM");
+            }
             Object convertedValue = convertValue(data.get(columnName), field.getType());
             setter.invoke(instance, convertedValue);
         }

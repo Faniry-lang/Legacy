@@ -52,16 +52,20 @@ public class QueryManager {
         }
     }
 
-    public long executeInsertReturnId(String sql, Object... params) throws Exception {
+    public Object executeInsertReturnId(String sql, Object... params) throws Exception {
         try (Connection conn = DbConn.getConn();
              PreparedStatement stmt = conn.prepareStatement(sql, Statement.RETURN_GENERATED_KEYS)) {
 
-            setParameters(stmt, params);
-            stmt.executeUpdate();
+            try {
+                setParameters(stmt, params);
+                stmt.executeUpdate();
+            } catch (Exception e) {
+                System.out.println("ERREUR SAVE: "+e.getMessage());
+            }
 
             try (ResultSet rs = stmt.getGeneratedKeys()) {
                 if (rs.next()) {
-                    return rs.getLong(1);
+                    return rs.getObject(1);
                 } else {
                     throw new SQLException("Aucune clé générée");
                 }
