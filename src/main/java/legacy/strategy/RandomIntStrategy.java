@@ -9,6 +9,6 @@ public class RandomIntStrategy implements Strategy {
     @Override
     public Serializable generate(BaseEntity entity) {
         Random random = new Random();
-        return random.nextInt();
+        return random.nextInt(Integer.MAX_VALUE);
     }
 }

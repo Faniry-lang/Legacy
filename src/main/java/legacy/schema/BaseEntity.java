@@ -30,7 +30,11 @@ public class BaseEntity {
         return str.substring(0, 1).toUpperCase() + str.substring(1);
     }
 
-    private LinkedHashMap<String, Object> getColumnsWithValue() throws InstantiationException {
+    public LinkedHashMap<String, Object> getColumnsWithValue() throws InstantiationException {
+        return getColumnsWithValue(true);
+    }
+
+    private LinkedHashMap<String, Object> getColumnsWithValue(boolean includeId) throws InstantiationException {
         LinkedHashMap<String, Object> columns = new LinkedHashMap<>();
         Field[] fields = this.getClass().getDeclaredFields();
         for (Field field : fields) {
@@ -39,7 +43,10 @@ public class BaseEntity {
                 Column columnAnnotation = field.getAnnotation(Column.class);
                 if(!columnAnnotation.name().isEmpty()) {
                     colName = columnAnnotation.name();
-                }   
+                }
+                if(!includeId && field.isAnnotationPresent(Id.class)) {
+                    continue;
+                }
                 field.setAccessible(true);
                 try {
                     Object value = null;
@@ -94,6 +101,27 @@ public class BaseEntity {
         return null;
     }
 
+    public Method getIdGetter(String idFieldName) throws Exception {
+        Field[] fields = this.getClass().getDeclaredFields();
+        for (Field field : fields) {
+            if(field.isAnnotationPresent(legacy.annotations.Id.class)) {
+                if(!field.isAnnotationPresent(Column.class)) {
+                    throw new Exception("Found columnd @Id not annotated with @Column, please add @Column annotation to the id column");
+                }
+                Column columnAnnotation = field.getAnnotation(Column.class);
+                if(!columnAnnotation.name().equalsIgnoreCase(idFieldName)) {
+                    continue;
+                }
+                try {
+                    return this.getClass().getMethod("get" + capitalize(field.getName()));
+                } catch (NoSuchMethodException e) {
+                    e.printStackTrace();
+                }
+            }
+        }
+        return null;
+    }
+
     public Method getIdSetter() {
         Field[] fields = this.getClass().getDeclaredFields();
         for (Field field : fields) {
@@ -108,12 +136,12 @@ public class BaseEntity {
         return null;
     }
 
-    public String getIdFieldName() {
+    public List<String> getIdFieldName() {
         Field[] fields = this.getClass().getDeclaredFields();
         return findIdFieldNameInFields(fields);
     }
 
-    public static <T extends BaseEntity> String getIdFieldNameFromClass(Class<T> entityClass) {
+    public static <T extends BaseEntity> List<String> getIdFieldNameFromClass(Class<T> entityClass) {
         if(!entityClass.isAnnotationPresent(Entity.class)) {
             throw new IllegalArgumentException("The entity class provided is not annotated with @Entity");
         }
@@ -122,7 +150,8 @@ public class BaseEntity {
         return findIdFieldNameInFields(fields);
     }
 
-    private static String findIdFieldNameInFields(Field[] fields) {
+    private static List<String> findIdFieldNameInFields(Field[] fields) {
+        List<String> ids = new ArrayList<>();
         for(Field field : fields) {
             if(field.isAnnotationPresent(Id.class)) {
                 String colName = field.getName();
@@ -132,10 +161,10 @@ public class BaseEntity {
                         colName = columnAnnotation.name();
                     }
                 }
-                return colName;
+                ids.add(colName);
             }
         }
-        return null;
+        return ids;
     }
 
     public String createInsertSql(LinkedHashMap<String, Object> columnsWithValue) {
@@ -183,7 +212,7 @@ public class BaseEntity {
 
     public String createUpdateSql(LinkedHashMap<String, Object> columnsWithValue) throws Exception {
         StringBuilder sql = new StringBuilder("UPDATE ");
-        String idFieldName = this.getIdFieldName();
+        List<String> idFieldName = this.getIdFieldName();
 
         sql.append(getTableNameFromClass(this.getClass()));
         sql.append(" SET ");
@@ -197,8 +226,14 @@ public class BaseEntity {
         }
         sql.setLength(sql.length() - 2); 
         sql.append(" WHERE ");
-        sql.append(idFieldName);
-        sql.append( " = ?");
+
+        for(int i = 0; i < idFieldName.size(); i++) {
+            sql.append(idFieldName.get(i));
+            sql.append( " = ?");
+            if(i < idFieldName.size() - 1) {
+                sql.append(" AND ");
+            }
+        }
 
         return sql.toString();
     }
@@ -224,12 +259,14 @@ public class BaseEntity {
     }
     
     public BaseEntity update() throws Exception {
-        LinkedHashMap<String, Object> columnsWithValue = this.getColumnsWithValue();
+        LinkedHashMap<String, Object> columnsWithValue = this.getColumnsWithValue(false);
         String sql = this.createUpdateSql(columnsWithValue);
-        String idFieldName = this.getIdFieldName();
-        Method idGetter = this.getIdGetter();
-        Object id = idGetter.invoke(this);
-        columnsWithValue.put(idFieldName, id);
+        List<String> idFieldName = this.getIdFieldName();
+        for(String idField : idFieldName) {
+            Method idGetter = this.getIdGetter(idField);
+            Object id = idGetter.invoke(this);
+            columnsWithValue.put(idField, id);
+        }
         Object[] params = columnsWithValue.values().toArray();
 
         this.queryManager.executeUpdate(sql, params);        
@@ -237,15 +274,27 @@ public class BaseEntity {
     }
 
     public void delete() throws Exception {
-        Method idGetter = this.getIdGetter();
-        String idFieldName = this.getIdFieldName();
-        if (idGetter == null || idFieldName == null) {
-            throw new IllegalStateException("Id field not defined on entity " + this.getClass().getSimpleName());
-        }
+        List<String> idFieldName = this.getIdFieldName();
+        String sql = "DELETE FROM " + getTableNameFromClass(this.getClass()) + " WHERE ";
+        String afterWhere = "";
+        Object[] ids = new Object[idFieldName.size()];
+        for(int i = 0; i < idFieldName.size(); i++) {
+            Method idGetter = this.getIdGetter(idFieldName.get(i));
+            if (idGetter == null) {
+                throw new IllegalStateException("'"+idFieldName.get(i)+"' Id getter not found on entity " + this.getClass().getSimpleName());
+            }
 
-        Object idValue = idGetter.invoke(this);
-        String sql = "DELETE FROM " + getTableNameFromClass(this.getClass()) + " WHERE " + idFieldName + " = ?";
-        this.queryManager.executeUpdate(sql, idValue);
+            Object idValue = idGetter.invoke(this);
+            ids[i] = idValue;
+            afterWhere += idFieldName.get(i) + " = ?";
+            if(i < idFieldName.size() - 1) {
+                afterWhere += " AND ";
+            }
+        }
+        if(afterWhere.isEmpty() || afterWhere.equals("")) {
+            throw new Exception("[LEGACY ERROR] Delete operation invalid due to unspecified id field in entity class: "+this.getClass().getSimpleName());
+        }
+        this.queryManager.executeUpdate(sql+afterWhere, ids);
     }
 
     public static <T extends BaseEntity> List<T> findAll(Class<T> entityClass, QueryManager queryManager) throws Exception {
@@ -265,10 +314,41 @@ public class BaseEntity {
             throw new IllegalStateException("Entity class " + entityClass.getSimpleName() + " is not annotated with @Entity");
         }
         T instance = entityClass.getDeclaredConstructor().newInstance();
-        String idFieldName = instance.getIdFieldName();
+        String idFieldName = instance.getIdFieldName().get(0);
         
         String sql = "SELECT * FROM " + tableName + " WHERE " + idFieldName + " = ?";
         List<RawObject> rows = queryManager.executeSelect(sql, id);
+        if (rows.isEmpty()) {
+            return null;
+        }
+
+        return rows.get(0).toEntity(entityClass);
+    }
+
+    public static <T extends BaseEntity> T findById(Map<String, Object> ids, Class<T> entityClass, QueryManager queryManager) throws Exception {
+        String tableName = getTableNameFromClass(entityClass);
+        if (tableName.isEmpty()) {
+            throw new IllegalStateException("Entity class " + entityClass.getSimpleName() + " is not annotated with @Entity");
+        }
+        T instance = entityClass.getDeclaredConstructor().newInstance();
+        List<String> idFieldName = instance.getIdFieldName();
+
+        String sql = "SELECT * FROM " + tableName + " WHERE ";
+        String afterWhere = "";
+        Object[] idsParams = new Object[idFieldName.size()];
+        for(int i = 0; i < idFieldName.size(); i++) {
+            afterWhere += idFieldName.get(i) + " = ?";
+            if(i < idFieldName.size() - 1) {
+                afterWhere += " AND ";
+            }
+            idsParams[i] = ids.get(idFieldName.get(i));
+        }
+
+        if(afterWhere.isEmpty() || afterWhere.equals("")) {
+            throw new Exception("[LEGACY ERROR] Error while fetching by ids, condition invalid (id annotated fields might be missing in entity declaration)");
+        }
+
+        List<RawObject> rows = queryManager.executeSelect(sql+afterWhere, idsParams);
         if (rows.isEmpty()) {
             return null;
         }
@@ -320,18 +400,6 @@ public class BaseEntity {
             baseEntityList.add(rawObject.toEntity(entityClass));
         }
         return baseEntityList;
-    }
-
-    public static <T extends  BaseEntity> List<T> findAllByIds(Class<T> entityClass, QueryManager queryManager, List<Object> ids) throws Exception {
-        StringBuilder sb = new StringBuilder("SELECT * FROM "+getTableNameFromClass(entityClass)+" WHERE "+getIdFieldNameFromClass(entityClass)+" IN (");
-        String idsString = "";
-        for(int i = 0 ; i < ids.size(); i++) {
-            idsString += "?, ";
-        }
-        idsString = idsString.substring(0, idsString.length() - 2);
-        sb.append(idsString).append(")");
-
-        return fetch(entityClass, queryManager, sb.toString(), ids.toArray());
     }
 
     private void mount(String fieldName) throws Exception {
