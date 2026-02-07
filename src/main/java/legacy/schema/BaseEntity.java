@@ -1,14 +1,11 @@
 package legacy.schema;
 
-import legacy.annotations.Column;
-import legacy.annotations.Entity;
-import legacy.annotations.ForeignKey;
-import legacy.annotations.Id;
-import legacy.query.Comparator;
+import legacy.annotations.*;
 import legacy.query.Filter;
 import legacy.query.QueryManager;
 import legacy.query.RawObject;
-import legacy.exceptions.UnmountedEntityException;
+import legacy.strategy.GeneratedAfterPersistence;
+import legacy.strategy.Strategy;
 
 import java.lang.reflect.Field;
 import java.util.*;
@@ -33,18 +30,11 @@ public class BaseEntity {
         return str.substring(0, 1).toUpperCase() + str.substring(1);
     }
 
-    public LinkedHashMap<String, Object> getColumnsWithValue() {
-        return getColumnsWithValue(true);
-    }
-
-    private LinkedHashMap<String, Object> getColumnsWithValue(boolean includeId) {
+    private LinkedHashMap<String, Object> getColumnsWithValue() throws InstantiationException {
         LinkedHashMap<String, Object> columns = new LinkedHashMap<>();
         Field[] fields = this.getClass().getDeclaredFields();
         for (Field field : fields) {
             if(field.isAnnotationPresent(Column.class)) {
-                if (!includeId && field.isAnnotationPresent(legacy.annotations.Id.class)) {
-                    continue;
-                }
                 String colName = field.getName();
                 Column columnAnnotation = field.getAnnotation(Column.class);
                 if(!columnAnnotation.name().isEmpty()) {
@@ -52,14 +42,42 @@ public class BaseEntity {
                 }   
                 field.setAccessible(true);
                 try {
-                    Method getter = this.getClass().getMethod("get" + capitalize(field.getName()));
-                    columns.put(colName, getter.invoke(this));
+                    Object value = null;
+                    if(field.isAnnotationPresent(Generated.class)) {
+                        if(field.getAnnotation(Generated.class).strategy().equals(GeneratedAfterPersistence.class)) {
+                            continue;
+                        }
+                        value = getGeneratedValue(field);
+                        columns.put(colName, value);
+                    } else {
+                        Method getter = this.getClass().getMethod("get" + capitalize(field.getName()));
+                        value = getter.invoke(this);
+                        if(value == null) {
+                            if(!columnAnnotation.nullable()) {
+                                throw new IllegalArgumentException("Field '"+field.getName()+"' is marked as non-nullable but is provided with null value");
+                            }
+                            continue;
+                        }
+                        columns.put(colName, value);
+                    }
                 } catch (IllegalAccessException | NoSuchMethodException | InvocationTargetException e) {
-                    e.printStackTrace();
+                    System.out.println("[LEGACY ERROR] Error while retrieving entity columns with value: "+e.getMessage());
                 }
             }
         }
         return columns;
+    }
+
+    private Object getGeneratedValue(Field field) throws InstantiationException, IllegalAccessException, NoSuchMethodException, InvocationTargetException {
+        Generated generatedValueAnnotation = field.getAnnotation(Generated.class);
+        Class<? extends Strategy> strategyClass =  generatedValueAnnotation.strategy();
+        Strategy strategy = strategyClass.getDeclaredConstructor().newInstance();
+        // shouldn't happen
+        if(strategy instanceof GeneratedAfterPersistence) {
+            return null;
+        }
+        Object idValue = strategy.generate(this);
+        return idValue;
     }
 
     public Method getIdGetter() {
@@ -170,6 +188,9 @@ public class BaseEntity {
         sql.append(getTableNameFromClass(this.getClass()));
         sql.append(" SET ");
         for(String colName : columnsWithValue.keySet()) {
+            if(colName.equals(idFieldName)) {
+                continue;
+            }
             sql.append(colName);
             sql.append(" = ?");
             sql.append(", ");   
@@ -183,11 +204,11 @@ public class BaseEntity {
     }
 
     public BaseEntity save() throws Exception {
-        LinkedHashMap<String, Object> columnsWithValue = getColumnsWithValue(false);
+        LinkedHashMap<String, Object> columnsWithValue = getColumnsWithValue();
         String sqlStr = createInsertSql(columnsWithValue);
         System.out.println("[DEBUG Legacy Framework] (BaseEntity.save) Generated SQL: " + sqlStr);
         Object[] params = columnsWithValue.values().toArray();
-        long returnedId = this.queryManager.executeInsertReturnId(sqlStr, params);
+        Object returnedId = this.queryManager.executeInsertReturnId(sqlStr, params);
 
         Method idSetter = getIdSetter();
         if(idSetter != null) {
@@ -195,6 +216,7 @@ public class BaseEntity {
                 idSetter.invoke(this, returnedId);
             } catch (IllegalAccessException | InvocationTargetException e) {
                 e.printStackTrace();
+                System.out.println(e.getMessage());
             }
         }
 
@@ -202,7 +224,7 @@ public class BaseEntity {
     }
     
     public BaseEntity update() throws Exception {
-        LinkedHashMap<String, Object> columnsWithValue = this.getColumnsWithValue(false);
+        LinkedHashMap<String, Object> columnsWithValue = this.getColumnsWithValue();
         String sql = this.createUpdateSql(columnsWithValue);
         String idFieldName = this.getIdFieldName();
         Method idGetter = this.getIdGetter();
