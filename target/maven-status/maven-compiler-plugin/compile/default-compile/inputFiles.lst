@@ -1,9 +1,11 @@
 D:\itu\gestion_de_projet\Legacy\src\main\java\legacy\annotations\Column.java
 D:\itu\gestion_de_projet\Legacy\src\main\java\legacy\annotations\Entity.java
 D:\itu\gestion_de_projet\Legacy\src\main\java\legacy\annotations\ForeignKey.java
+D:\itu\gestion_de_projet\Legacy\src\main\java\legacy\annotations\Generated.java
 D:\itu\gestion_de_projet\Legacy\src\main\java\legacy\annotations\Id.java
 D:\itu\gestion_de_projet\Legacy\src\main\java\legacy\exceptions\ForeignKeyFieldNotFound.java
 D:\itu\gestion_de_projet\Legacy\src\main\java\legacy\exceptions\UnmountedEntityException.java
+D:\itu\gestion_de_projet\Legacy\src\main\java\legacy\exceptions\UnvalidEntityDeclarationException.java
 D:\itu\gestion_de_projet\Legacy\src\main\java\legacy\query\Comparator.java
 D:\itu\gestion_de_projet\Legacy\src\main\java\legacy\query\Filter.java
 D:\itu\gestion_de_projet\Legacy\src\main\java\legacy\query\QueryManager.java
@@ -12,6 +14,11 @@ D:\itu\gestion_de_projet\Legacy\src\main\java\legacy\schema\BaseEntity.java
 D:\itu\gestion_de_projet\Legacy\src\main\java\legacy\schema\BaseView.java
 D:\itu\gestion_de_projet\Legacy\src\main\java\legacy\schema\ColumnData.java
 D:\itu\gestion_de_projet\Legacy\src\main\java\legacy\schema\ForeignKeysCollection.java
+D:\itu\gestion_de_projet\Legacy\src\main\java\legacy\strategy\GeneratedAfterPersistence.java
+D:\itu\gestion_de_projet\Legacy\src\main\java\legacy\strategy\RandomIntStrategy.java
+D:\itu\gestion_de_projet\Legacy\src\main\java\legacy\strategy\Strategy.java
+D:\itu\gestion_de_projet\Legacy\src\main\java\legacy\strategy\TimestampStrategy.java
+D:\itu\gestion_de_projet\Legacy\src\main\java\legacy\strategy\UUIDStrategy.java
 D:\itu\gestion_de_projet\Legacy\src\main\java\legacy\utils\DbConn.java
 D:\itu\gestion_de_projet\Legacy\src\main\java\legacy\utils\EntityGenerator.java
 D:\itu\gestion_de_projet\Legacy\src\main\java\legacy\utils\PropertyLoader.java

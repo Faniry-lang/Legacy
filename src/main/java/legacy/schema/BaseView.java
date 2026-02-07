@@ -25,7 +25,7 @@ public class BaseView extends BaseEntity {
 
     @Override
     @Deprecated
-    public String getIdFieldName() {
+    public List<String> getIdFieldName() {
         throw new UnsupportedOperationException("Operation is not supported for views.");
     }
 
