@@ -31,11 +31,7 @@ public class BaseEntity {
         return str.substring(0, 1).toUpperCase() + str.substring(1);
     }
 
-    public LinkedHashMap<String, Object> getColumnsWithValue() throws InstantiationException {
-        return getColumnsWithValue(true);
-    }
-
-    private LinkedHashMap<String, Object> getColumnsWithValue(boolean includeId) throws InstantiationException {
+    private LinkedHashMap<String, Object> getColumnsWithValue(boolean isIdIncluded)  {
         LinkedHashMap<String, Object> columns = new LinkedHashMap<>();
         Field[] fields = this.getClass().getDeclaredFields();
         for (Field field : fields) {
@@ -45,35 +41,159 @@ public class BaseEntity {
                 if(!columnAnnotation.name().isEmpty()) {
                     colName = columnAnnotation.name();
                 }
-                if(!includeId && field.isAnnotationPresent(Id.class)) {
+                if(!isIdIncluded && field.isAnnotationPresent(Id.class)) {
                     continue;
                 }
                 field.setAccessible(true);
                 try {
-                    Object value = null;
-                    if(field.isAnnotationPresent(Generated.class)) {
-                        if(field.getAnnotation(Generated.class).strategy().equals(GeneratedAfterPersistence.class)) {
-                            continue;
-                        }
-                        value = getGeneratedValue(field);
-                        columns.put(colName, value);
-                    } else {
-                        Method getter = this.getClass().getMethod("get" + capitalize(field.getName()));
-                        value = getter.invoke(this);
-                        if(value == null) {
-                            if(!columnAnnotation.nullable()) {
-                                throw new IllegalArgumentException("Field '"+field.getName()+"' is marked as non-nullable but is provided with null value");
-                            }
-                            continue;
-                        }
-                        columns.put(colName, value);
-                    }
+
+                    populateColumns(columns, field, colName, columnAnnotation);
+
                 } catch (IllegalAccessException | NoSuchMethodException | InvocationTargetException e) {
                     System.out.println("[LEGACY ERROR] Error while retrieving entity columns with value: "+e.getMessage());
                 }
             }
         }
         return columns;
+    }
+
+    private void populateColumns(LinkedHashMap<String, Object> columns, Field field, String colName, Column columnAnnotation) throws NoSuchMethodException, IllegalAccessException, InvocationTargetException {
+        Object value;
+        Method getter = this.getClass().getMethod("get" + capitalize(field.getName()));
+        value = getter.invoke(this);
+        if(value == null) {
+            if(!columnAnnotation.nullable()) {
+                throw new IllegalArgumentException("Field '"+field.getName()+"' is marked as non-nullable but is provided with null value");
+            }
+            return;
+        }
+        columns.put(colName, value);
+    }
+
+    private LinkedHashMap<String, Object> prepareFieldsBeforeSave() throws Exception {
+        // 1) collect all columns annotated with @Column
+        LinkedHashMap<String, Object> columns = new LinkedHashMap<>();
+        Field[] fields = this.getClass().getDeclaredFields();
+
+        // map: dbColumnName -> Field
+        Map<String, Field> columnNameToField = new LinkedHashMap<>();
+        for (Field field : fields) {
+            if(!field.isAnnotationPresent(Column.class)) continue;
+            String colName = field.getName();
+            Column columnAnnotation = field.getAnnotation(Column.class);
+            if(!columnAnnotation.name().isEmpty()) {
+                colName = columnAnnotation.name();
+            }
+            field.setAccessible(true);
+            columnNameToField.put(colName, field);
+        }
+
+        // 2) build dependency graph for generated fields
+        // nodes: db column names of fields annotated with @Generated
+        Map<String, Set<String>> graph = new HashMap<>();
+        for(Map.Entry<String, Field> e : columnNameToField.entrySet()) {
+            String colName = e.getKey();
+            Field field = e.getValue();
+            if(field.isAnnotationPresent(Generated.class)) {
+                graph.putIfAbsent(colName, new HashSet<>());
+                if(field.isAnnotationPresent(DependsOnFieldGeneration.class)) {
+                    DependsOnFieldGeneration dep = field.getAnnotation(DependsOnFieldGeneration.class);
+                    String dependsOn = dep.fieldName();
+                    if(dependsOn == null || dependsOn.isEmpty()) {
+                        throw new IllegalStateException("@DependsOnFieldGeneration on '"+colName+"' must declare a non-empty fieldName");
+                    }
+                    // check that the depended column exists and is also annotated with Generated
+                    Field dependedField = columnNameToField.get(dependsOn);
+                    if(dependedField == null) {
+                        throw new IllegalStateException("Field '"+colName+"' depends on '"+dependsOn+"' which does not exist as a column in entity '"+this.getClass().getSimpleName()+"'");
+                    }
+                    if(!dependedField.isAnnotationPresent(Generated.class)) {
+                        throw new IllegalStateException("Field '"+colName+"' depends on '"+dependsOn+"' but that field is not annotated with @Generated");
+                    }
+                    // edge: depended -> colName (we want to generate depended first)
+                    graph.putIfAbsent(dependsOn, new HashSet<>());
+                    graph.get(dependsOn).add(colName);
+                } else {
+                    // no dependency declared: ensure node exists
+                    graph.putIfAbsent(colName, new HashSet<>());
+                }
+            }
+        }
+
+        // 3) detect cycles and perform topological sort
+        List<String> generationOrder = topologicalSort(graph);
+
+        // 4) generate values for generated fields in order
+        for(String genCol : generationOrder) {
+            Field field = columnNameToField.get(genCol);
+            if(field == null) continue; // defensive
+            // skip GeneratedAfterPersistence
+            Generated genAnn = field.getAnnotation(Generated.class);
+            if(genAnn.strategy().equals(GeneratedAfterPersistence.class)) {
+                continue;
+            }
+            Object generatedValue = getGeneratedValue(field);
+            // set generated value on the current object via reflection
+            field.setAccessible(true);
+            field.set(this, generatedValue);
+            columns.put(genCol, generatedValue);
+        }
+
+        // 5) for non-generated columns, populate values (respecting nullable)
+        for(Map.Entry<String, Field> e : columnNameToField.entrySet()) {
+            String colName = e.getKey();
+            Field field = e.getValue();
+            if(field.isAnnotationPresent(Generated.class)) continue; // already handled
+            Column columnAnnotation = field.getAnnotation(Column.class);
+            try {
+                populateColumns(columns, field, colName, columnAnnotation);
+            } catch (NoSuchMethodException | IllegalAccessException | InvocationTargetException ex) {
+                System.out.println("[LEGACY ERROR] Error while retrieving entity columns with value: "+ex.getMessage());
+            }
+        }
+
+        return columns;
+    }
+
+    private List<String> topologicalSort(Map<String, Set<String>> graph) {
+        // Kahn's algorithm
+        Map<String, Integer> inDegree = new HashMap<>();
+        for(String node : graph.keySet()) {
+            inDegree.putIfAbsent(node, 0);
+        }
+        for(Map.Entry<String, Set<String>> e : graph.entrySet()) {
+            for(String to : e.getValue()) {
+                inDegree.put(to, inDegree.getOrDefault(to, 0) + 1);
+            }
+        }
+
+        Deque<String> queue = new ArrayDeque<>();
+        for(Map.Entry<String, Integer> e : inDegree.entrySet()) {
+            if(e.getValue() == 0) queue.add(e.getKey());
+        }
+
+        List<String> result = new ArrayList<>();
+        while(!queue.isEmpty()) {
+            String node = queue.removeFirst();
+            result.add(node);
+            for(String neigh : graph.getOrDefault(node, Collections.emptySet())) {
+                inDegree.put(neigh, inDegree.get(neigh) - 1);
+                if(inDegree.get(neigh) == 0) queue.add(neigh);
+            }
+        }
+
+        // if result size != number of nodes that are generated -> cycle
+        int nodesCount = graph.size();
+        if(result.size() != nodesCount) {
+            // find nodes in cycle
+            Set<String> unresolved = new HashSet<>();
+            for(String n : graph.keySet()) {
+                if(!result.contains(n)) unresolved.add(n);
+            }
+            throw new IllegalStateException("Circular dependency detected among generated fields: " + unresolved);
+        }
+
+        return result;
     }
 
     private Object getGeneratedValue(Field field) throws InstantiationException, IllegalAccessException, NoSuchMethodException, InvocationTargetException {
@@ -240,7 +360,7 @@ public class BaseEntity {
     }
 
     public BaseEntity save() throws Exception {
-        LinkedHashMap<String, Object> columnsWithValue = getColumnsWithValue();
+        LinkedHashMap<String, Object> columnsWithValue = prepareFieldsBeforeSave();
         String sqlStr = createInsertSql(columnsWithValue);
         System.out.println("[DEBUG Legacy Framework] (BaseEntity.save) Generated SQL: " + sqlStr);
         Object[] params = columnsWithValue.values().toArray();
