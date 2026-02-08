@@ -8,7 +8,7 @@ public class DbConn {
     
     public static Connection getConn() throws Exception {
         try {
-            Properties properties = PropertyLoader.loadProperties("db.properties");
+            Properties properties = PropertyLoader.loadProperties("application.properties");
             String url = properties.getProperty("db.url");
             String username = properties.getProperty("db.username");
             String password = properties.getProperty("db.password");
