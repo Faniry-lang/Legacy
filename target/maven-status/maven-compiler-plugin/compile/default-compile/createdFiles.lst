@@ -1,3 +1,5 @@
+legacy\annotations\DependsOnFieldGeneration.class
+legacy\query\FilterSet.class
 legacy\schema\BaseEntity.class
 legacy\utils\PropertyLoader.class
 legacy\utils\DbConn.class
