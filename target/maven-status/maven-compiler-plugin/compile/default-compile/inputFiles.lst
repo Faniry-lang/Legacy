@@ -1,4 +1,5 @@
 D:\itu\gestion_de_projet\Legacy\src\main\java\legacy\annotations\Column.java
+D:\itu\gestion_de_projet\Legacy\src\main\java\legacy\annotations\DependsOnFieldGeneration.java
 D:\itu\gestion_de_projet\Legacy\src\main\java\legacy\annotations\Entity.java
 D:\itu\gestion_de_projet\Legacy\src\main\java\legacy\annotations\ForeignKey.java
 D:\itu\gestion_de_projet\Legacy\src\main\java\legacy\annotations\Generated.java
@@ -8,6 +9,7 @@ D:\itu\gestion_de_projet\Legacy\src\main\java\legacy\exceptions\UnmountedEntityE
 D:\itu\gestion_de_projet\Legacy\src\main\java\legacy\exceptions\UnvalidEntityDeclarationException.java
 D:\itu\gestion_de_projet\Legacy\src\main\java\legacy\query\Comparator.java
 D:\itu\gestion_de_projet\Legacy\src\main\java\legacy\query\Filter.java
+D:\itu\gestion_de_projet\Legacy\src\main\java\legacy\query\FilterSet.java
 D:\itu\gestion_de_projet\Legacy\src\main\java\legacy\query\QueryManager.java
 D:\itu\gestion_de_projet\Legacy\src\main\java\legacy\query\RawObject.java
 D:\itu\gestion_de_projet\Legacy\src\main\java\legacy\schema\BaseEntity.java
