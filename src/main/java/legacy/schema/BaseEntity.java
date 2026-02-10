@@ -124,12 +124,20 @@ public class BaseEntity {
         List<String> generationOrder = topologicalSort(graph);
 
         // 4) generate values for generated fields in order
+        Method getter = null;
+        Object value = null;
         for(String genCol : generationOrder) {
             Field field = columnNameToField.get(genCol);
             if(field == null) continue; // defensive
             // skip GeneratedAfterPersistence
             Generated genAnn = field.getAnnotation(Generated.class);
             if(genAnn.strategy().equals(GeneratedAfterPersistence.class)) {
+                continue;
+            }
+
+            getter = this.getClass().getMethod("get" + capitalize(field.getName()));
+            value = getter.invoke(this);
+            if(!genAnn.overWrite() && value != null) {
                 continue;
             }
             Object generatedValue = getGeneratedValue(field);
