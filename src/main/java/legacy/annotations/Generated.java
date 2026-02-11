@@ -12,4 +12,5 @@ import java.lang.annotation.Target;
 @Retention(RetentionPolicy.RUNTIME)
 public @interface Generated {
     Class<? extends Strategy> strategy() default GeneratedAfterPersistence.class;
+    boolean overWrite() default true;
 }
