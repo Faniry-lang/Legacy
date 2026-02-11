@@ -52,30 +52,32 @@ public class QueryManager {
         }
     }
 
-    public int executeInsertReturnId(String sql, Object... params) throws Exception {
+    public RawObject executeInsertReturning(String sql, Object... params) throws Exception {
         try (Connection conn = DbConn.getConn();
-             PreparedStatement stmt = conn.prepareStatement(sql, Statement.RETURN_GENERATED_KEYS)) {
+             PreparedStatement stmt = conn.prepareStatement(sql)) {
 
-            try {
-                setParameters(stmt, params);
-                stmt.executeUpdate();
-            } catch (Exception e) {
-                System.out.println("ERREUR SAVE: "+e.getMessage());
-            }
+            setParameters(stmt, params);
 
-            try (ResultSet rs = stmt.getGeneratedKeys()) {
+            try (ResultSet rs = stmt.executeQuery()) {
                 if (rs.next()) {
-                    return rs.getInt(1);
-                } else {
-                    System.out.println("Aucune clé générée");
-                    return -1;
+                    ResultSetMetaData meta = rs.getMetaData();
+                    int columnCount = meta.getColumnCount();
+
+                    Map<String, Object> row = new HashMap<>();
+                    for (int i = 1; i <= columnCount; i++) {
+                        System.out.println("[DEBUG LEGACY EXECUTE INSERT] ");
+                        System.out.println("Column: "+meta.getColumnLabel(i));
+                        row.put(meta.getColumnLabel(i), rs.getObject(i));
+                    }
+
+                    return new RawObject(row);
                 }
-            } catch (Exception e) {
-                //System.out.println(e.getMessage());
-                return -1;
             }
         }
+
+        return null;
     }
+
 
     private void setParameters(PreparedStatement stmt, Object... params) throws SQLException {
         if (params != null) {
